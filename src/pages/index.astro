@@ -1,0 +1,103 @@
+---
+// 主页总览 "/"：全部带 published 日期的 vault 笔记（文章），一页全览、无分页。
+import OverviewList, {
+	type OverviewRow,
+} from "../components/home/OverviewList.astro";
+import HomeLayout from "../layouts/HomeLayout.astro";
+import { getOverviewEntries, renderEntry } from "../utils/content-utils";
+import { getSiteMdConfig } from "../utils/site-config";
+
+const entries = await getOverviewEntries();
+const homeIndex = getSiteMdConfig();
+
+let rows: OverviewRow[] = [];
+for (const e of entries) {
+	let words: number | undefined;
+	let minutes: number | undefined;
+	let description = e.description;
+	try {
+		// 与文章页同法取字数/阅读分钟/摘要
+		const fm = (await renderEntry(e.entry)).remarkPluginFrontmatter ?? {};
+		if (!description && typeof fm.excerpt === "string")
+			description = fm.excerpt;
+		if (typeof fm.words === "number") words = fm.words;
+		if (typeof fm.minutes === "number") minutes = fm.minutes;
+	} catch {
+		/* 渲染失败不阻塞列表 */
+	}
+	const isEssay = e.category === "随笔";
+	rows.push({
+		url: e.url,
+		title: e.title,
+		published: e.published,
+		draft: e.draft,
+		category: e.category,
+		tags: e.tags,
+		description: description || "",
+		isEssay,
+		words,
+		minutes,
+	});
+}
+
+/* index.md「文章总览」小节：列出者在前（按列表顺序），未列者按默认排序续后 */
+if (homeIndex.overviewOrder.length > 0) {
+	function keyOf(u: string): string {
+		let x = u;
+		try {
+			x = decodeURIComponent(x);
+		} catch {
+			/* 保留原样 */
+		}
+		return x.replace(/^\/+|\/+$/g, "").toLowerCase();
+	}
+	const used = rows.map(() => false);
+	const ordered: OverviewRow[] = [];
+	for (const item of homeIndex.overviewOrder) {
+		const k = keyOf(item.url);
+		const idx = rows.findIndex((r, i) => !used[i] && keyOf(r.url) === k);
+		if (idx !== -1) {
+			ordered.push(rows[idx]);
+			used[idx] = true;
+		}
+	}
+	rows.forEach((r, i) => {
+		if (!used[i]) ordered.push(r);
+	});
+	rows = ordered;
+}
+---
+
+<HomeLayout>
+	<OverviewList rows={rows}></OverviewList>
+</HomeLayout>
+
+<script is:inline>
+	// 首页总览实时过滤（本地客户端逻辑，行含 data-hay）
+	(function () {
+		var input = document.getElementById("ov-filter");
+		if (!input) return;
+		var rows = Array.prototype.slice.call(document.querySelectorAll(".ov-row"));
+		var total = rows.length;
+		var count = document.getElementById("ov-count");
+		var heroTotal = document.getElementById("ov-hero-total");
+		var info = document.getElementById("ov-info");
+		var none = document.getElementById("ov-none");
+		var root = input.closest(".card-base");
+		var foundTpl = root ? root.getAttribute("data-found") || "找到 {n} 篇" : "找到 {n} 篇";
+		input.addEventListener("input", function () {
+			var q = (input.value || "").trim().toLowerCase();
+			var vis = 0;
+			rows.forEach(function (r) {
+				var hit =
+					!q || (r.getAttribute("data-hay") || "").indexOf(q) !== -1;
+				r.hidden = !hit;
+				if (hit) vis++;
+			});
+			if (count) count.textContent = q ? String(vis) : String(total);
+			if (heroTotal) heroTotal.textContent = String(vis);
+			if (none) none.style.display = vis === 0 && q ? "block" : "none";
+			if (info) info.textContent = q ? foundTpl.replace("{n}", String(vis)) : "";
+		});
+	})();
+</script>

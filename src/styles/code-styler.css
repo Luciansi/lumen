@@ -1,0 +1,419 @@
+/*
+ * Code-Styler decoration styles (port of Obsidian-Code-Styler's reading view)
+ * on top of the blog's figure surface. Structure follows the plugin's DOM
+ * contract (pre.code-styler-pre > header? + code rows with line-number /
+ * line-text children) so the component look stays close to Obsidian while
+ * the shell (border/radius/background) keeps fuwari's design tokens.
+ *
+ * Loaded AFTER quartz-content.css (see GlobalStyles.astro order comment) —
+ * decorated blocks override the plain figure's pre padding and clipboard
+ * placement.
+ */
+
+/* ---------------------------------------------------------------------------
+ * tokens
+ * ------------------------------------------------------------------------- */
+
+:root {
+	/* surface/text — LIGHT page theme sits the codeblock on a near-white
+	   surface, so the github-light token palette (dark text) stays readable */
+	--code-styler-codeblock-background-colour: var(--codeblock-bg);
+	--code-styler-codeblock-text-colour: oklch(0.3 0.02 var(--hue));
+	--code-styler-gutter-background-colour: color-mix(
+		in oklab,
+		var(--codeblock-topbar-bg) 55%,
+		var(--codeblock-bg)
+	);
+	--code-styler-gutter-text-colour: oklch(0.5 0.02 var(--hue));
+	/* header */
+	--code-styler-header-background-colour: var(--codeblock-topbar-bg);
+	--code-styler-header-title-text-colour: oklch(0.3 0.02 var(--hue));
+	--code-styler-header-language-tag-background-colour: color-mix(
+		in oklab,
+		var(--btn-content) 10%,
+		transparent
+	);
+	--code-styler-header-language-tag-text-colour: oklch(0.32 0.04 var(--hue));
+	--code-styler-header-separator-colour: var(--line-divider);
+	/* highlights */
+	--code-styler-default-highlight-colour: oklch(0.8 0.13 90 / 0.42);
+	--gradient-background-colour: transparent;
+	--gradient-highlights-colour-stop: 100%;
+	/* buttons / chevron */
+	--code-styler-button-colour: oklch(0.42 0.03 var(--hue));
+	/* geometry */
+	--code-padding: 0.625rem;
+	--header-font-size: 0.8125rem;
+	--header-spacing: 0.75rem;
+	--header-button-spacing: 0.5rem;
+	--header-separator-width: 1px;
+	--language-icon-size: 1.25rem;
+	--line-number-gutter-min-width: 2.5ch;
+	--line-number-gutter-padding: 0.875rem;
+	/* alternative highlight colours (name must match config alternativeHighlightNames) */
+	--cs-hl-alt: oklch(0.76 0.12 295 / 0.38);
+	--cs-hl-ins: oklch(0.8 0.13 150 / 0.45);
+	--cs-hl-del: oklch(0.74 0.14 25 / 0.4);
+	--cs-hl-warn: oklch(0.84 0.13 90 / 0.5);
+	--cs-hl-err: oklch(0.76 0.16 20 / 0.42);
+}
+
+:root.dark {
+	--code-styler-codeblock-text-colour: oklch(0.86 0.05 var(--hue));
+	--code-styler-gutter-background-colour: color-mix(
+		in oklab,
+		var(--codeblock-topbar-bg) 55%,
+		var(--codeblock-bg)
+	);
+	--code-styler-gutter-text-colour: oklch(0.55 0.02 var(--hue));
+	--code-styler-header-title-text-colour: var(--btn-content);
+	--code-styler-header-language-tag-text-colour: var(--primary);
+	--code-styler-button-colour: var(--btn-content);
+	--code-styler-default-highlight-colour: oklch(0.8 0.13 90 / 0.2);
+	--cs-hl-alt: oklch(0.75 0.11 295 / 0.22);
+	--cs-hl-ins: oklch(0.8 0.12 150 / 0.22);
+	--cs-hl-del: oklch(0.72 0.13 25 / 0.26);
+	--cs-hl-warn: oklch(0.82 0.12 85 / 0.22);
+	--cs-hl-err: oklch(0.72 0.14 20 / 0.28);
+}
+
+/* ---------------------------------------------------------------------------
+ * shells
+ * ------------------------------------------------------------------------- */
+
+/* decorated RPC figures: rows own the padding; plain figure rules keep.
+   (specificity must beat figure[data-rehype-pretty-code-figure] pre) */
+figure.code-styler-decorated[data-rehype-pretty-code-figure] > pre {
+	padding: 0;
+	background: transparent;
+}
+
+/* language-less param blocks have no figure: the pre becomes the shell */
+pre.code-styler-pre.code-styler-standalone {
+	margin: 1.25rem 0;
+	border: 1px solid var(--line-divider);
+	border-radius: 0.75rem;
+	background: var(--codeblock-bg);
+	overflow: hidden;
+}
+
+/* ---------------------------------------------------------------------------
+ * code grid (Code-Styler gutter | text layout, on top of RPC's display:grid)
+ * ------------------------------------------------------------------------- */
+
+.code-styler-pre > code {
+	display: grid;
+	grid-template-columns: min-content auto;
+	padding: var(--code-padding) 0;
+	white-space: pre;
+	overflow-x: auto;
+	overflow-y: hidden;
+	transition:
+		max-height 0.24s ease-in-out,
+		padding-top 0.24s ease-in-out,
+		padding-bottom 0.24s ease-in-out,
+		border-top-width 0.24s ease-in-out;
+}
+
+/* soft wrap on request (plugin: wrapped/unwrapped classes) */
+.code-styler-pre.code-styler-wrapped > code {
+	white-space: pre-wrap;
+}
+
+.code-styler-pre.code-styler-unwrapped > code {
+	white-space: pre;
+}
+
+/* ---------------------------------------------------------------------------
+ * rows
+ * ------------------------------------------------------------------------- */
+
+/* row wrappers participate in the code grid as contents. Rows carry either
+   the bare `code-styler-line` token or highlight classes
+   (`code-styler-line-highlighted[-<name>]`) — both must flatten. */
+.code-styler-pre .code-styler-line,
+.code-styler-pre [class*="code-styler-line-highlighted"] {
+	display: contents;
+}
+
+.code-styler-line-number {
+	grid-column: 1;
+	position: sticky;
+	left: 0;
+	z-index: 1;
+	min-width: var(--line-number-gutter-min-width);
+	padding-right: 0.25rem;
+	text-align: right;
+	font-size: 0.8125rem;
+	line-height: 1.5rem;
+	background: var(--code-styler-gutter-background-colour);
+	color: var(--code-styler-gutter-text-colour);
+	user-select: none;
+}
+
+/* gutter paint bleed across the code's vertical padding */
+.code-styler-line-number:first-child {
+	box-shadow: 0 calc(-1 * var(--code-padding)) 0 var(--code-styler-gutter-background-colour);
+}
+
+.code-styler-line-number:last-child {
+	box-shadow: 0 var(--code-padding) 0 var(--code-styler-gutter-background-colour);
+}
+
+.code-styler-line-number:first-child:last-child {
+	box-shadow:
+		0 calc(-1 * var(--code-padding)) 0 var(--code-styler-gutter-background-colour),
+		0 var(--code-padding) 0 var(--code-styler-gutter-background-colour);
+}
+
+.code-styler-pre .code-styler-line-text {
+	grid-column: 2;
+	padding-left: var(--line-number-gutter-padding);
+	padding-right: 0.5rem;
+	color: var(--code-styler-codeblock-text-colour);
+}
+
+.code-styler-pre.code-styler-hide-numbers .code-styler-line-text {
+	padding-left: 1.25rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * highlights (flat by default; gradient via var stop)
+ * ------------------------------------------------------------------------- */
+
+/* any highlight row class (code-styler-line-highlighted or
+   code-styler-line-highlighted-<name>) paints the line-text gradient; the
+   per-name rules below only pick the colour via the variable */
+.code-styler-pre [class*="code-styler-line-highlighted"] > .code-styler-line-text {
+	border-radius: 0.25rem;
+	background-image: linear-gradient(
+		90deg,
+		var(--gradient-background-colour) 0% var(--gradient-highlights-colour-stop),
+		transparent 100%
+	);
+}
+
+.code-styler-line-highlighted .code-styler-line-text {
+	--gradient-background-colour: var(--code-styler-default-highlight-colour);
+}
+
+/* named alternative highlight families (classes emitted as
+   code-styler-line-highlighted-<name>, colors keyed per config name).
+   rows may carry several of these at once (plugin parity); the later
+   declarations win for the gradient colour */
+.code-styler-line-highlighted-alt .code-styler-line-text {
+	--gradient-background-colour: var(--cs-hl-alt);
+}
+
+.code-styler-line-highlighted-ins .code-styler-line-text {
+	--gradient-background-colour: var(--cs-hl-ins);
+}
+
+.code-styler-line-highlighted-del .code-styler-line-text {
+	--gradient-background-colour: var(--cs-hl-del);
+}
+
+.code-styler-line-highlighted-warn .code-styler-line-text {
+	--gradient-background-colour: var(--cs-hl-warn);
+}
+
+.code-styler-line-highlighted-err .code-styler-line-text {
+	--gradient-background-colour: var(--cs-hl-err);
+}
+
+/* RPC-native highlights on PLAIN (non-decorated) figures — previously inert */
+figure[data-rehype-pretty-code-figure]:not(.code-styler-decorated)
+	span[data-line][data-highlighted-line] {
+	display: block;
+	border-radius: 0.25rem;
+	background: var(--code-styler-default-highlight-colour);
+}
+
+/* RPC-native per-character marks (both decorated and plain figures) */
+mark[data-highlighted-chars] {
+	border-radius: 0.2rem;
+	background: color-mix(in oklab, var(--cs-hl-warn) 60%, transparent);
+	padding: 0 0.1em;
+}
+
+/* ---------------------------------------------------------------------------
+ * header
+ * ------------------------------------------------------------------------- */
+
+.code-styler-header-container {
+	display: flex;
+	align-items: center;
+	gap: var(--header-spacing);
+	background: var(--code-styler-header-background-colour);
+	border-bottom: var(--header-separator-width) solid
+		var(--code-styler-header-separator-colour);
+	padding: 0.35rem 0.75rem;
+	font-size: var(--header-font-size);
+	line-height: 1.2;
+	user-select: none;
+	cursor: pointer;
+}
+
+.code-styler-header-container .code-styler-header-icon {
+	display: flex;
+	align-items: center;
+}
+
+.code-styler-header-container .code-styler-icon {
+	width: var(--language-icon-size);
+	height: var(--language-icon-size);
+	display: block;
+	/* typography's prose img margins (2em vertical) would balloon the header */
+	margin: 0;
+	vertical-align: middle;
+}
+
+.code-styler-header-language-tag {
+	background: var(--code-styler-header-language-tag-background-colour);
+	color: var(--code-styler-header-language-tag-text-colour);
+	border-radius: 0.375rem;
+	padding: 0.1rem 0.5rem;
+	font-weight: 600;
+}
+
+.code-styler-header-text {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--code-styler-header-title-text-colour);
+	font-style: italic;
+}
+
+/* fold chevron (masked SVG, plugin look). The copy button carries
+   margin-left:auto (pushes itself + the chevron to the header's right edge);
+   these overrides pin the chevron right again when no button is visible
+   (folded blocks hide the button) */
+.code-styler-header-container::after {
+	content: "";
+	flex: 0 0 auto;
+	width: 0.9em;
+	height: 0.9em;
+	margin-left: var(--header-button-spacing);
+	background-color: var(--code-styler-button-colour);
+	-webkit-mask: var(--code-styler-chevron-mask) center / contain no-repeat;
+	mask: var(--code-styler-chevron-mask) center / contain no-repeat;
+	transition: transform 0.2s ease-in-out;
+}
+
+.code-styler-decorated:has(pre.code-styler-folded) .code-styler-header-container::after,
+.code-styler-standalone.code-styler-folded .code-styler-header-container::after {
+	margin-left: auto;
+}
+
+:root {
+	--code-styler-chevron-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+}
+
+.code-styler-decorated:has(pre.code-styler-folded) .code-styler-header-container::after,
+.code-styler-standalone.code-styler-folded .code-styler-header-container::after {
+	transform: rotate(180deg);
+}
+
+/* ---------------------------------------------------------------------------
+ * folding
+ * ------------------------------------------------------------------------- */
+
+.code-styler-pre.code-styler-folded > code {
+	max-height: 0 !important;
+	padding-top: 0;
+	padding-bottom: 0;
+	overflow: hidden;
+}
+
+.code-styler-standalone.code-styler-folded {
+	border-bottom-width: var(--header-separator-width);
+}
+
+/* ---------------------------------------------------------------------------
+ * header links + code comment links
+ * ------------------------------------------------------------------------- */
+
+.code-styler-header-container a,
+.code-styler-line-text a.code-styler-code-link {
+	display: inline;
+	color: var(--primary);
+	text-decoration: none;
+	border: none;
+	background: none;
+}
+
+.code-styler-header-container a:hover,
+.code-styler-line-text a.code-styler-code-link:hover {
+	text-decoration: underline;
+	text-decoration-style: dashed;
+	text-underline-offset: 2px;
+}
+
+.code-styler-line-text a.code-styler-code-link.broken {
+	color: var(--broken-link);
+	text-decoration: underline wavy var(--broken-link);
+	text-underline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+ * clipboard button in the header
+ * ------------------------------------------------------------------------- */
+
+.code-styler-header-container .clipboard-button {
+	position: static;
+	display: inline-flex;
+	float: none;
+	/* push copy + chevron to the right edge of the header */
+	margin: 0 0 0 auto;
+	padding: 0.2rem;
+	background: transparent;
+	border: none;
+	color: var(--code-styler-button-colour);
+	opacity: 0;
+	transition: opacity 0.2s;
+}
+
+.code-styler-decorated:hover .clipboard-button,
+.code-styler-standalone:hover .clipboard-button,
+.code-styler-header-container .clipboard-button:focus-visible {
+	opacity: 1;
+}
+
+.code-styler-decorated:has(.code-styler-folded) .clipboard-button,
+.code-styler-standalone.code-styler-folded .clipboard-button {
+	display: none;
+}
+
+/* ---------------------------------------------------------------------------
+ * reference errors
+ * ------------------------------------------------------------------------- */
+
+pre.code-styler-error-pre {
+	padding: 0.75rem;
+	margin: 0;
+	background: transparent;
+	overflow: visible;
+	white-space: normal;
+}
+
+pre > .code-styler-error {
+	margin: 0;
+	border: 1px solid color-mix(in oklab, var(--admonitions-color-caution) 60%, transparent);
+	background: color-mix(in oklab, var(--admonitions-color-caution) 10%, var(--codeblock-bg));
+	border-radius: 0.5rem;
+	padding: 0.625rem 0.875rem;
+	color: var(--code-styler-codeblock-text-colour);
+	font-family: "JetBrains Mono Variable", ui-monospace, monospace;
+	font-size: 0.8125rem;
+	line-height: 1.5;
+}
+
+.code-styler-error .code-styler-error-title {
+	color: var(--admonitions-color-caution);
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	font-size: 0.6875rem;
+}

@@ -1,0 +1,70 @@
+---
+// 主页总览右侧「推荐」卡：纯标题自定义列表。
+// 条目来自 src/content/index.md（每行 `- [标题](链接)`），不再是 config。
+import { getSiteMdConfig } from "../../utils/site-config";
+import { url } from "../../utils/url-utils";
+
+const homeIndex = getSiteMdConfig();
+const { recommend } = homeIndex;
+const ui = homeIndex.ui;
+const empty = recommend.length === 0;
+const zh = /^zh/i.test(homeIndex.site.lang);
+---
+
+<div class="card-base p-5">
+	<div class="ov-head">{ui.sectionRecommend}</div>
+	{!empty && (
+		<ol class="m-0 flex list-none flex-col gap-0.5 p-0">
+			{recommend.map((item) => (
+				<li>
+					<a href={url(item.url)} class="rec-link">{item.title}</a>
+				</li>
+			))}
+		</ol>
+	)}
+	{empty && (
+		<p class="rec-note">{zh ? "在 src/content/index.md 里添加 `- [标题](链接)` 条目即可" : "Add `- [Title](url)` entries in src/content/index.md"}</p>
+	)}
+</div>
+
+<style>
+	.ov-head {
+		position: relative;
+		margin: 0 0 0.7rem 1rem;
+		font-size: 1.08rem;
+		font-weight: 700;
+		color: var(--text-strong);
+	}
+	.ov-head::before {
+		content: "";
+		position: absolute;
+		left: -1rem;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 0.28rem;
+		height: 1.05rem;
+		border-radius: 0.3rem;
+		background: var(--primary);
+	}
+	.rec-link {
+		display: block;
+		padding: 0.42rem 0.8rem;
+		border-radius: 0.6rem;
+		font-weight: 600;
+		font-size: 0.9rem;
+		line-height: 1.5;
+		overflow-wrap: break-word;
+		color: var(--text-strong);
+		transition: background-color 0.15s, color 0.15s;
+	}
+	.rec-link:hover {
+		background: var(--btn-plain-bg-hover);
+		color: var(--primary);
+	}
+	.rec-note {
+		margin-top: 0.6rem;
+		font-size: 0.72rem;
+		color: var(--btn-content);
+		opacity: 0.55;
+	}
+</style>

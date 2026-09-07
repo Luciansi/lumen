@@ -1,0 +1,387 @@
+@import "tailwindcss";
+@plugin '@tailwindcss/typography';
+
+@custom-variant dark (&:is(.dark *));
+
+@layer base {
+  /* 继承文本的兜底色:显式 text-* 类会覆盖它;没有它,dark 下未着色的
+     h1/p 等(如个人卡名字、推荐卡标题)会退回浏览器默认黑字而看不清 */
+  body {
+    color: var(--text-strong);
+  }
+}
+
+@theme {
+  --font-sans:
+    Roboto, sans-serif, ui-sans-serif, system-ui, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+@utility card-base {
+  @apply rounded-(--radius-large) overflow-hidden bg-(--card-bg) transition;
+}
+
+@utility card-shadow {
+  @apply drop-shadow-[0_2px_4px_rgba(0,0,0,0.005)];
+}
+
+@utility expand-animation {
+  @apply relative before:ease-out before:transition active:bg-none hover:before:bg-(--btn-plain-bg-hover) active:before:bg-(--btn-plain-bg-active) z-0
+        before:absolute before:rounded-[inherit] before:inset-0 before:scale-[0.85] hover:before:scale-100 before:-z-10;
+}
+
+@utility link {
+  @apply transition rounded-md p-1 -m-1 expand-animation;
+}
+
+@utility link-lg {
+  @apply transition rounded-md p-1.5 -m-1.5 expand-animation;
+}
+
+@utility float-panel {
+  @apply top-[5.25rem] rounded-(--radius-large) overflow-hidden bg-(--float-panel-bg) transition shadow-xl dark:shadow-none;
+}
+
+@utility float-panel-closed {
+  @apply -translate-y-1 opacity-0 pointer-events-none;
+}
+
+@utility search-panel {
+  & mark {
+    @apply bg-transparent text-(--primary);
+  }
+}
+
+@utility btn-card {
+  @apply transition flex items-center justify-center bg-(--card-bg) hover:bg-(--btn-card-bg-hover)
+        active:bg-(--btn-card-bg-active);
+  &.disabled {
+    @apply pointer-events-none text-black/10 dark:text-white/10;
+  }
+}
+
+@utility disabled {
+  &.btn-card {
+    @apply pointer-events-none text-black/10 dark:text-white/10;
+  }
+}
+
+@utility btn-plain {
+  @apply transition relative flex items-center justify-center bg-none
+        text-black/75 hover:text-(--primary) dark:text-white/75 dark:hover:text-(--primary);
+  &:not(.scale-animation) {
+    @apply hover:bg-(--btn-plain-bg-hover) active:bg-(--btn-plain-bg-active);
+  }
+  &.scale-animation {
+    @apply expand-animation;
+    &.current-theme-btn {
+      @apply before:scale-100 before:opacity-100 before:bg-(--btn-plain-bg-hover) text-(--primary);
+    }
+  }
+}
+
+@utility btn-regular {
+  @apply transition flex items-center justify-center bg-(--btn-regular-bg) hover:bg-(--btn-regular-bg-hover) active:bg-(--btn-regular-bg-active)
+        text-(--btn-content) dark:text-white/75;
+}
+
+@utility link-underline {
+  @apply transition underline decoration-2 decoration-dashed decoration-(--link-underline)
+        hover:decoration-(--link-hover) active:decoration-(--link-active) underline-offset-[0.25rem];
+}
+
+@utility toc-hide {
+  @apply opacity-0 pointer-events-none;
+}
+
+@utility toc-not-ready {
+  @apply opacity-0 pointer-events-none;
+}
+
+@utility hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility text-90 {
+  @apply text-black/90 dark:text-white/90;
+}
+
+@utility text-75 {
+  @apply text-black/75 dark:text-white/75;
+}
+
+@utility text-50 {
+  @apply text-black/50 dark:text-white/50;
+}
+
+@utility text-30 {
+  @apply text-black/30 dark:text-white/30;
+}
+
+@utility text-25 {
+  @apply text-black/25 dark:text-white/25;
+}
+
+@utility meta-icon {
+  @apply w-8 h-8 transition rounded-md flex items-center justify-center bg-(--btn-regular-bg)
+        text-(--btn-content) mr-2;
+}
+
+@utility with-divider {
+  @apply before:content-['/'] before:ml-1.5 before:mr-1.5 before:text-(--meta-divider) before:text-sm
+        before:font-medium first-of-type:before:hidden before:transition;
+}
+
+@utility btn-regular-dark {
+  @apply flex items-center justify-center
+        bg-[oklch(0.45_0.01_var(--hue))] hover:bg-[oklch(0.50_0.01_var(--hue))] active:bg-[oklch(0.55_0.01_var(--hue))]
+        dark:bg-[oklch(0.30_0.02_var(--hue))] dark:hover:bg-[oklch(0.35_0.03_var(--hue))] dark:active:bg-[oklch(0.40_0.03_var(--hue))];
+  &.success {
+    @apply bg-[oklch(0.75_0.14_var(--hue))] dark:bg-[oklch(0.75_0.14_var(--hue))];
+  }
+}
+
+@utility success {
+  &.btn-regular-dark {
+    @apply bg-[oklch(0.75_0.14_var(--hue))] dark:bg-[oklch(0.75_0.14_var(--hue))];
+  }
+}
+
+@layer components {
+    h1, h2, h3, h4, h5, h6, p, a, span, li, ul, ol, blockquote, code, pre, table, th, td, strong {
+        @apply transition;
+    }
+
+    #toc-inner-wrapper {
+        mask-image: linear-gradient(to bottom, transparent 0%, black 2rem, black calc(100% - 2rem), transparent 100%);
+    }
+}
+
+/* reading-path emphasis (set by the TOC widget): the current section gets
+   the accent color. Unlayered on purpose: the entry text uses text-30/
+   text-50 utilities which live in the later utilities layer and would
+   otherwise win. */
+#toc a.toc-current {
+    background-color: color-mix(in oklab, var(--toc-item-active) 13%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--toc-item-active) 30%, transparent);
+}
+#toc a.toc-current > div:last-child {
+    color: var(--toc-item-active);
+    font-weight: 600;
+}
+
+/* knowledge-note sidebar drawer (KbSidebarDrawer.astro): hidden by the
+   -translate-x-full utility, shown by this .open rule. Unlayered on
+   purpose — the utility lives in the utilities layer and would otherwise
+   win. Must clear the standalone `translate` property (Tailwind v4
+   translate utilities set `translate`, not `transform`). */
+#kb-sidebar-drawer.open {
+    translate: 0 0;
+}
+
+/* scrim: a theme-aware veil over the page while the drawer is open
+   (same color-mix approach as .global-graph-outer). Its visibility flips
+   after the fade-out so the closed scrim stays click-through-free. */
+#kb-sidebar-scrim {
+    position: fixed;
+    top: 3.5rem; /* below the sticky navbar — aligns with the drawer (top-14) */
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 30; /* above the page, below the drawer (z-40) and toggle (z-50) */
+    background: color-mix(in oklab, var(--page-bg) 85%, transparent);
+    backdrop-filter: blur(2px);
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+}
+#kb-sidebar-drawer.open ~ #kb-sidebar-scrim {
+    visibility: visible;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.custom-md img, #post-cover img {
+    @apply cursor-zoom-in
+}
+
+::selection {
+    background-color: var(--selection-bg)
+}
+
+.dash-line {
+    position: relative;
+}
+
+.dash-line::before {
+    content: "";
+    position: absolute;
+    width: 10%;
+    height: 100%;
+    left: calc(50% - 1px);
+    border-left: 2px dashed var(--line-color);
+    pointer-events: none;
+    transition: all 0.3s;
+    transform: translateY(-50%);
+}
+
+.collapsed {
+    height: var(--collapsedHeight);
+}
+
+.custom-md spoiler {
+  @apply bg-(--codeblock-bg) hover:bg-transparent px-1 py-0.5 overflow-hidden rounded-md transition-all duration-150;
+
+  &:not(:hover) {
+    color: var(--codeblock-bg);
+    * {
+        color: var(--codeblock-bg);
+    }
+  }
+}
+/* ---------- quartz graph view (ported from @quartz-community/graph) ---------- */
+
+.graph-outer {
+	position: relative;
+	/* wide 2:1 viewport for the rail local graph: width comes from the rail
+	   column, height follows; the fullscreen graph keeps its own square box */
+	aspect-ratio: 2 / 1;
+	margin: 0.25rem 0 0;
+	overflow: hidden;
+	border: 1px solid var(--line-divider);
+	border-radius: 5px;
+}
+
+.graph-outer > .global-graph-icon {
+	position: absolute;
+	top: 0;
+	right: 0;
+	width: 24px;
+	height: 24px;
+	margin: 0.3rem;
+	padding: 0.2rem;
+	cursor: pointer;
+	background: none;
+	border: none;
+	border-radius: 4px;
+	color: var(--graph-label);
+	opacity: 0.5;
+	transition: background-color 0.5s ease;
+}
+
+.graph-outer > .global-graph-icon:hover {
+	background-color: var(--btn-plain-bg-hover);
+}
+
+.graph-container {
+	width: 100%;
+	height: 100%;
+}
+
+.graph-error {
+	display: grid;
+	place-items: center;
+	width: 100%;
+	height: 100%;
+	padding: 1rem;
+	color: var(--btn-content);
+	font-size: 0.85rem;
+	text-align: center;
+}
+
+.global-graph-outer {
+	position: fixed;
+	inset: 0;
+	z-index: 9999;
+	visibility: hidden;
+	opacity: 0;
+	/* fade-out on close; visibility flips after the fade so the overlay
+	   stays click-through-free while hidden */
+	transition: opacity 0.25s ease, visibility 0s linear 0.25s;
+	overflow: hidden;
+	background: color-mix(in oklab, var(--page-bg) 88%, transparent);
+	backdrop-filter: blur(6px);
+}
+
+.global-graph-outer.active {
+	visibility: visible;
+	opacity: 1;
+	transition: opacity 0.25s ease;
+}
+
+.global-graph-outer > .global-graph-container {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	width: min(80vw, 80vh);
+	height: min(80vw, 80vh);
+	border: 1px solid var(--line-divider);
+	border-radius: 10px;
+	background: var(--card-bg);
+	transform: translate(-50%, -50%);
+	box-shadow: 0 24px 70px -18px rgb(0 0 0 / 0.35);
+}
+
+/* entrance: overlay fades in, the graph card pops from 96% scale */
+.global-graph-outer.active > .global-graph-container {
+	animation: graph-modal-pop 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes graph-modal-pop {
+	from {
+		opacity: 0;
+		transform: translate(-50%, -50%) scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: translate(-50%, -50%) scale(1);
+	}
+}
+
+/* floating header label + close button above the graph card */
+.global-graph-outer > .global-graph-head {
+	position: fixed;
+	top: 1.25rem;
+	left: 1.25rem;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	z-index: 1;
+	padding: 0.4rem 0.8rem;
+	border: 1px solid var(--line-divider);
+	border-radius: 9999px;
+	background: color-mix(in oklab, var(--card-bg) 85%, transparent);
+	backdrop-filter: blur(4px);
+	color: var(--btn-content);
+	font-size: 0.8rem;
+	box-shadow: 0 6px 18px -8px rgb(0 0 0 / 0.25);
+}
+
+.global-graph-outer > .global-graph-close {
+	position: fixed;
+	top: 1.25rem;
+	right: 1.25rem;
+	z-index: 1;
+	display: grid;
+	place-items: center;
+	width: 2.1rem;
+	height: 2.1rem;
+	border: 1px solid var(--line-divider);
+	border-radius: 9999px;
+	background: color-mix(in oklab, var(--card-bg) 85%, transparent);
+	backdrop-filter: blur(4px);
+	color: var(--btn-content);
+	opacity: 0.85;
+	cursor: pointer;
+	transition: background-color 0.2s ease, opacity 0.2s ease;
+	box-shadow: 0 6px 18px -8px rgb(0 0 0 / 0.25);
+}
+
+.global-graph-outer > .global-graph-close:hover {
+	opacity: 1;
+	background-color: var(--btn-plain-bg-hover);
+}

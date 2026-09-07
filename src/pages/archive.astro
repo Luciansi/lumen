@@ -1,0 +1,16 @@
+---
+import ArchivePanel from "@components/ArchivePanel.svelte";
+import I18nKey from "@i18n/i18nKey";
+import { i18n } from "@i18n/server-i18n";
+import MainGridLayout from "@layouts/MainGridLayout.astro";
+import { getArchiveEntries } from "../utils/content-utils";
+
+const sortedPostsList = await getArchiveEntries();
+---
+
+<MainGridLayout title={i18n(I18nKey.archive)}>
+    <!-- sr-only h1 so swup's a11y plugin finds a heading on this page -->
+    <h1 class="sr-only">{i18n(I18nKey.archive)}</h1>
+    <ArchivePanel sortedPosts={sortedPostsList} client:only="svelte"></ArchivePanel>
+</MainGridLayout>
+

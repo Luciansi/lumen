@@ -1,0 +1,47 @@
+/*
+ * Image alignment classes, ported from the obsidian-image-converter plugin's
+ * styles.css (IMAGE ALIGNMENT block, lines 2812-2958 — the
+ * .markdown-reading-view rules) and adapted to the static blog:
+ *
+ *  - scoped under .custom-md (the prose content wrapper Markdown.astro uses);
+ *  - classes sit on the <img> itself — there is no .internal-embed wrapper
+ *    here, so the container/justify-content rules are dropped entirely;
+ *  - the pair position × wrap determines the layout:
+ *      left/right + wrap   → float, text flows around (plugin margins kept);
+ *      left/right, no wrap → block, flush to the inner edge, clears floats;
+ *      center              → block + auto margins (wrap token is inert);
+ *  - no !important needed: typography's .prose img margin rules (0,1,0) lose
+ *    to these (0,3,1)+ selectors. `margin: auto` zeroes the prose 2em
+ *    top/bottom margins; preflight's display:block and max-width:100% still
+ *    apply, as do .custom-md img's border-radius and the PhotoSwipe zoom.
+ */
+.custom-md img.image-converter-aligned.image-wrap.image-position-left {
+	float: left;
+	clear: left;
+	margin: 0 1em 0.5em 0;
+}
+.custom-md img.image-converter-aligned.image-wrap.image-position-right {
+	float: right;
+	clear: right;
+	margin: 0 0 0.5em 1em;
+}
+.custom-md img.image-converter-aligned.image-no-wrap.image-position-left {
+	display: block;
+	float: none;
+	clear: both;
+	margin: auto;
+	margin-left: 0;
+}
+.custom-md img.image-converter-aligned.image-no-wrap.image-position-right {
+	display: block;
+	float: none;
+	clear: both;
+	margin: auto;
+	margin-right: 0;
+}
+.custom-md img.image-converter-aligned.image-position-center {
+	display: block;
+	float: none;
+	clear: both;
+	margin: auto;
+}

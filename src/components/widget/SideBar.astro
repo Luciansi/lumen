@@ -1,0 +1,22 @@
+---
+import type { MarkdownHeading } from "astro";
+import { getSiteMdConfig } from "../../utils/site-config";
+import HeroCard from "../home/HeroCard.astro";
+import Categories from "./Categories.astro";
+import Tag from "./Tags.astro";
+
+interface Props {
+	class?: string;
+	headings?: MarkdownHeading[];
+}
+
+const className = Astro.props.class;
+const ui = getSiteMdConfig().ui;
+---
+<div id="sidebar" class:list={[className, "w-full"]}>
+    <HeroCard class="onload-animation mb-4"></HeroCard>
+    <div id="sidebar-sticky" class="transition-all duration-700 flex flex-col w-full gap-4 sticky top-[3.75rem]">
+        <Categories title={ui.sectionCategories} class="onload-animation" style="animation-delay: 150ms"></Categories>
+        <Tag title={ui.sectionTags} class="onload-animation" style="animation-delay: 200ms"></Tag>
+    </div>
+</div>

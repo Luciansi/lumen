@@ -1,0 +1,9 @@
+---
+
+import { getSiteConfig } from "@/utils/site-config";
+
+const siteConfig = getSiteConfig();
+---
+
+<div id="config-carrier" data-hue={siteConfig.themeColor.hue} data-lang={siteConfig.lang}>
+</div>

@@ -1,0 +1,195 @@
+---
+import ImageWrapper from "@components/misc/ImageWrapper.astro";
+import License from "@components/misc/License.astro";
+import Markdown from "@components/misc/Markdown.astro";
+import PostMetadata from "@components/PostMeta.astro";
+import I18nKey from "@i18n/i18nKey";
+import { i18n } from "@i18n/server-i18n";
+import MainGridLayout from "@layouts/MainGridLayout.astro";
+import {
+	getAdjacentEntries,
+	renderEntry,
+	vaultEntries,
+} from "@utils/content-utils";
+import { kbRelDir, kbTitleOf, kbVaultPathOf } from "@utils/knowledge-utils";
+import {
+	getLicenseConfig,
+	getProfileConfig,
+	getSiteConfig,
+} from "@utils/site-config";
+import { url } from "@utils/url-utils";
+import { listVaults } from "@utils/vaults";
+import { Icon } from "astro-icon/components";
+import { formatDateToYYYYMMDD } from "../../utils/date-utils";
+
+export async function getStaticPaths() {
+	// every vault contributes its non-root notes under /<vault-route>/<id>/
+	// (drafts are dev-only, dropped from prod builds)
+	const paths = [];
+	for (const vault of listVaults()) {
+		let entries = await vaultEntries(vault.dir);
+		if (import.meta.env.PROD) {
+			entries = entries.filter((entry) => entry.data.draft !== true);
+		}
+		for (const entry of entries) {
+			if (entry.id === "index") continue; // served by [vault]/index.astro
+			paths.push({
+				params: { vault: vault.route, slug: entry.id },
+				props: { dir: vault.dir, entry },
+			});
+		}
+	}
+	return paths;
+}
+
+const { dir, entry } = Astro.props;
+const { Content, headings, remarkPluginFrontmatter } = await renderEntry(entry);
+
+// Obsidian notes usually carry no title in frontmatter — fall back to the
+// file name (original casing lives on filePath, see knowledge-utils).
+const title = String(entry.data.title || kbTitleOf(entry));
+const vaultPath = kbVaultPathOf(entry);
+
+// A dated note (with a parseable `published`) is an article: it gets the
+// posts-style header below plus license card, BlogPosting JSON-LD and
+// prev/next navigation. Obsidian YAML parses bare dates as Date objects;
+// normalize quoted ones.
+const data = entry.data as Record<string, unknown>;
+const published = data.published
+	? new Date(data.published as string | number | Date)
+	: undefined;
+const updated = data.updated
+	? new Date(data.updated as string | number | Date)
+	: undefined;
+const articleHeader =
+	published !== undefined && !Number.isNaN(published.getTime());
+const articleUrl = url(`/${Astro.params.vault}/${entry.id}/`);
+
+// article cover image (image: frontmatter, path relative to the note dir)
+const coverImage =
+	typeof data.image === "string" && data.image.trim() !== ""
+		? data.image
+		: undefined;
+
+const tags = Array.isArray(data.tags)
+	? data.tags
+			.filter((t: unknown) => typeof t === "string" || typeof t === "number")
+			.map(String)
+	: [];
+
+const licenseConfig = getLicenseConfig();
+const siteConfig = getSiteConfig();
+const profileConfig = getProfileConfig();
+
+const adjacent = articleHeader ? await getAdjacentEntries(articleUrl) : {};
+
+const jsonLd =
+	articleHeader && published
+		? {
+				"@context": "https://schema.org",
+				"@type": "BlogPosting",
+				headline: title,
+				description:
+					(typeof data.description === "string" && data.description) || title,
+				keywords: tags,
+				author: {
+					"@type": "Person",
+					name: profileConfig.name,
+					url: Astro.site,
+				},
+				datePublished: formatDateToYYYYMMDD(published),
+				inLanguage: (
+					(typeof data.lang === "string" && data.lang) ||
+					siteConfig.lang
+				).replace("_", "-"),
+			}
+		: null;
+---
+<MainGridLayout title={title} headings={headings} variant="knowledge-note">
+    {jsonLd && <script is:inline slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)}></script>}
+    <div class="flex w-full rounded-(--radius-large) overflow-hidden relative mb-4">
+        <div class="card-base z-10 px-6 md:px-9 pt-6 pb-4 relative w-full">
+            <!-- breadcrumb-ish path -->
+            <div class="text-sm text-black/50 dark:text-white/50 mb-3">{vaultPath}</div>
+
+            <!-- word count and reading time (same row as posts pages) -->
+            {articleHeader && (
+                <div class="flex flex-row text-black/30 dark:text-white/30 gap-5 mb-3 transition">
+                    <div class="flex flex-row items-center">
+                        <div class="transition h-6 w-6 rounded-md bg-black/5 dark:bg-white/10 text-black/50 dark:text-white/50 flex items-center justify-center mr-2">
+                            <Icon name="material-symbols:notes-rounded"></Icon>
+                        </div>
+                        <div class="text-sm">{remarkPluginFrontmatter.words} {" " + i18n(remarkPluginFrontmatter.words === 1 ? I18nKey.wordCount : I18nKey.wordsCount)}</div>
+                    </div>
+                    <div class="flex flex-row items-center">
+                        <div class="transition h-6 w-6 rounded-md bg-black/5 dark:bg-white/10 text-black/50 dark:text-white/50 flex items-center justify-center mr-2">
+                            <Icon name="material-symbols:schedule-outline-rounded"></Icon>
+                        </div>
+                        <div class="text-sm">
+                            {remarkPluginFrontmatter.minutes} {" " + i18n(remarkPluginFrontmatter.minutes === 1 ? I18nKey.minuteCount : I18nKey.minutesCount)}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <!-- title (h1: swup's a11y plugin announces it on page switches) -->
+            <h1 class="font-bold mb-5 text-3xl text-black/90 dark:text-white/90">{title}</h1>
+
+            <!-- article metadata: publish/update dates, category, tags -->
+            {articleHeader && (
+                <div class="mb-5">
+                    <PostMetadata
+                        class="mb-5"
+                        published={published!}
+                        updated={updated}
+                        tags={tags}
+                        category={(data.category as string | null) ?? null}
+                    ></PostMetadata>
+                    <div class="border-(--line-divider) border-dashed border-b-[1px]"></div>
+                </div>
+            )}
+
+            <!-- article cover image, rendered the same way as before -->
+            {coverImage && (
+                <ImageWrapper
+                    id="post-cover"
+                    src={coverImage}
+                    basePath={kbRelDir(entry, dir)}
+                    class="mb-8 rounded-xl banner-container onload-animation"
+                ></ImageWrapper>
+            )}
+
+            <Markdown class="mb-6 markdown-content">
+                <Content />
+            </Markdown>
+
+            {articleHeader && licenseConfig.enable && (
+                <License title={title} slug={`${Astro.params.vault}/${entry.id}`} pubDate={published!} class="mb-6 rounded-xl license-container onload-animation"></License>
+            )}
+        </div>
+    </div>
+
+    {articleHeader && (
+        <div class="flex flex-col md:flex-row justify-between mb-4 gap-4 overflow-hidden w-full">
+            <a href={adjacent.next ? adjacent.next.url : "#"}
+               class:list={["w-full font-bold overflow-hidden active:scale-95", {"pointer-events-none": !adjacent.next}]}>
+                {adjacent.next && <div class="btn-card rounded-2xl w-full h-[3.75rem] max-w-full px-4 flex items-center justify-start! gap-4" >
+                    <Icon name="material-symbols:chevron-left-rounded" class="text-[2rem] text-(--primary)" />
+                    <div class="overflow-hidden transition text-ellipsis whitespace-nowrap max-w-[calc(100%_-_3rem)] text-black/75 dark:text-white/75">
+                        {adjacent.next.title}
+                    </div>
+                </div>}
+            </a>
+
+            <a href={adjacent.prev ? adjacent.prev.url : "#"}
+               class:list={["w-full font-bold overflow-hidden active:scale-95", {"pointer-events-none": !adjacent.prev}]}>
+                {adjacent.prev && <div class="btn-card rounded-2xl w-full h-[3.75rem] max-w-full px-4 flex items-center justify-end! gap-4">
+                    <div class="overflow-hidden transition text-ellipsis whitespace-nowrap max-w-[calc(100%_-_3rem)] text-black/75 dark:text-white/75">
+                        {adjacent.prev.title}
+                    </div>
+                    <Icon name="material-symbols:chevron-right-rounded" class="text-[2rem] text-(--primary)" />
+                </div>}
+            </a>
+        </div>
+    )}
+</MainGridLayout>

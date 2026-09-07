@@ -1,0 +1,125 @@
+---
+// 主页总览专属布局（" / "）：
+// <1024         单列 hero → main → rec → widgets
+// 1024–1199     左轨(hero+widgets) | main；rec 落到 main 之下
+// ≥1200 (75rem) 左轨 | main | 右侧推荐列(rec, sticky)
+// id 约定（#swup-root/#swup-container/#toc）与 MainGridLayout 保持一致，
+// 保证 swup 页面过渡正常。
+import BackToTop from "@components/control/BackToTop.astro";
+import Footer from "@components/Footer.astro";
+import Navbar from "@components/Navbar.astro";
+import Categories from "@components/widget/Categories.astro";
+import Tags from "@components/widget/Tags.astro";
+import HeroCard from "../components/home/HeroCard.astro";
+import RecommendCard from "../components/home/RecommendCard.astro";
+import { getSiteMdConfig } from "../utils/site-config";
+import Layout from "./Layout.astro";
+
+const { title, description } = Astro.props;
+const ui = getSiteMdConfig().ui;
+---
+
+<Layout title={title} description={description}>
+	<!-- Navbar（与 MainGridLayout 相同外壳） -->
+	<slot slot="head" name="head"></slot>
+	<div id="top-row" class="z-50 pointer-events-none sticky top-0 transition-all duration-700 max-w-(--page-width) px-0 md:px-4 mx-auto">
+		<div id="navbar-wrapper" class="pointer-events-auto transition-all">
+			<Navbar></Navbar>
+		</div>
+	</div>
+
+	<!-- Main content（swup 单容器）。
+	     结构为单行网格（避免多行时 main 跨越撑高行高产生空隙）：
+	     左轨 .rail（hero + 分类/标签纵向堆叠）、中列 .maincol（main + 平板
+	     推荐卡）、右列 .rec-desk（≥1200px 的推荐卡）。移动端 .rail 以
+	     display:contents 让 hero/widgets 参与单列 areas 排序。 -->
+	<div id="swup-root" class="absolute w-full z-30 pointer-events-none transition-swup-fade" style="top: 4.5rem">
+		<div class="relative max-w-(--page-width) mx-auto pointer-events-auto">
+			<div id="main-grid" class="overview-grid grid transition duration-700 w-full mx-auto gap-4 px-0 md:px-4">
+				<div class="rail">
+					<HeroCard class="onload-animation"></HeroCard>
+
+					<aside class="widgets-holder min-w-0" aria-label="站点侧栏">
+						<div class="flex flex-col gap-4">
+							<Categories title={ui.sectionCategories} class="onload-animation" style="animation-delay: 150ms"></Categories>
+							<Tags title={ui.sectionTags} class="onload-animation" style="animation-delay: 200ms"></Tags>
+						</div>
+					</aside>
+				</div>
+
+				<div class="maincol min-w-0">
+					<main id="swup-container" class="transition-swup-fade min-w-0 overflow-hidden">
+						<div id="content-wrapper" class="onload-animation">
+							<slot></slot>
+						</div>
+					</main>
+
+					<!-- 平板（<1200px）：推荐卡位于文章之下 -->
+					<div class="rec-tab onload-animation mt-4" style="animation-delay: 250ms">
+						<RecommendCard></RecommendCard>
+					</div>
+				</div>
+
+				<aside class="rec-desk min-w-0" aria-label="推荐阅读">
+					<div class="sticky top-[3.75rem] onload-animation" style="animation-delay: 250ms">
+						<RecommendCard></RecommendCard>
+					</div>
+				</aside>
+			</div>
+
+			<!-- #toc 锚点：swup 正常工作的必需占位（本布局不使用悬浮目录） -->
+			<div id="toc" class="hidden"></div>
+
+			<div class="onload-animation" style="animation-delay: 300ms">
+				<Footer></Footer>
+			</div>
+			<BackToTop></BackToTop>
+		</div>
+	</div>
+</Layout>
+
+<style is:global>
+	/* 移动端单列：hero → 中列(main + rec-tab) → widgets（rail 以 contents 拆开） */
+	.overview-grid {
+		grid-template-areas:
+			"hero"
+			"maincol"
+			"widgets";
+		grid-template-columns: minmax(0, 1fr);
+		align-items: start;
+	}
+	.overview-grid .rail { display: contents; }
+	.overview-grid .rail > .onload-animation { grid-area: hero; }
+	.overview-grid .widgets-holder { grid-area: widgets; }
+	.overview-grid .maincol { grid-area: maincol; }
+	.rec-desk { display: none; }
+
+	/* 1024–1199：左轨 + 中列；推荐卡在中列文章之下（rec-tab） */
+	@media (min-width: 64rem) and (max-width: 74.9375rem) {
+		.overview-grid {
+			grid-template-columns: 17.5rem minmax(0, 1fr);
+			grid-template-areas: "rail maincol";
+		}
+		.overview-grid .rail {
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+		}
+		.rec-tab { display: block; }
+	}
+
+	/* ≥1200：三列；推荐卡独立右列（rec-desk），rec-tab 隐藏 */
+	@media (min-width: 75rem) {
+		.overview-grid {
+			grid-template-columns: 17.5rem minmax(0, 1fr) 15rem;
+			grid-template-areas: "rail maincol rec-desk";
+		}
+		.overview-grid .rail {
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+		}
+		.rec-tab { display: none; }
+		.rec-desk { display: block; }
+	}
+</style>

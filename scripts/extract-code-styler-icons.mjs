@@ -1,0 +1,168 @@
+#!/usr/bin/env node
+/**
+ * One-time extraction of the Code-Styler language icon tables
+ * (LANGUAGES + LANGUAGE_NAMES) from the plugin's Settings.ts into a
+ * generated TS data module.
+ *
+ * Usage:
+ *   node scripts/extract-code-styler-icons.mjs \
+ *     <path>/Obsidian-Code-Styler/src/Settings.ts \
+ *     [-o src/integrations/quartz-pipeline/code-styler/languages.ts]
+ *
+ * The source table is plain TS object literals (string keys, string values,
+ * nested one level for Language entries). A small string-aware scanner is
+ * enough — no TS parser needed.
+ */
+import fs from "node:fs";
+import path from "node:path";
+
+const args = process.argv.slice(2);
+const srcPath = args.find((a) => a.endsWith(".ts") && !a.startsWith("-"));
+if (!srcPath) {
+	console.error("usage: extract-code-styler-icons.mjs <Settings.ts> [-o out.ts]");
+	process.exit(1);
+}
+const outFlag = args.indexOf("-o");
+const outPath =
+	outFlag >= 0 && args[outFlag + 1]
+		? args[outFlag + 1]
+		: "src/integrations/quartz-pipeline/code-styler/languages.ts";
+
+const src = fs.readFileSync(srcPath, "utf8");
+
+/** Parse a double-quoted string literal starting at src[i] === '"'. */
+function parseString(src, i) {
+	let out = "";
+	for (let j = i + 1; j < src.length; j++) {
+		const c = src[j];
+		if (c === "\\") {
+			out += src[j + 1] ?? "";
+			j++;
+			continue;
+		}
+		if (c === '"') return { value: out, end: j + 1 };
+		out += c;
+	}
+	throw new Error("unterminated string literal near offset " + i);
+}
+
+/** Skip a `{...}` / `[...]` construct (or a bare token) starting at src[i]; return index after it. */
+function skipConstruct(src, i) {
+	const open = src[i];
+	if (open !== "{" && open !== "[") {
+		// bare token: read until whitespace, comma, colon or closing brace at this level
+		let j = i;
+		while (j < src.length && !/[\s,}\]/:]/.test(src[j])) j++;
+		return j;
+	}
+	const close = open === "{" ? "}" : "]";
+	let depth = 0;
+	for (let j = i; j < src.length; j++) {
+		const c = src[j];
+		if (c === '"') {
+			j = parseString(src, j).end - 1;
+			continue;
+		}
+		if (c === open) depth++;
+		else if (c === close && --depth === 0) return j + 1;
+	}
+	throw new Error("unterminated construct near offset " + i);
+}
+
+/** Parse the top-level pairs of an object literal whose text starts at src.indexOf("{"). */
+function parseObject(src) {
+	const start = src.indexOf("{");
+	if (start < 0) throw new Error("no object literal found");
+	const body = src.slice(start + 1, skipConstruct(src, start) - 1);
+	const pairs = [];
+	let i = 0;
+	while (i < body.length) {
+		// skip whitespace / commas between entries
+		while (i < body.length && /[\s,]/.test(body[i])) i++;
+		if (i >= body.length) break;
+		// key: quoted string or bare identifier
+		let key;
+		if (body[i] === '"') {
+			({ value: key, end: i } = parseString(body, i));
+		} else {
+			let j = i;
+			while (j < body.length && !/[\s:}]/.test(body[j])) j++;
+			key = body.slice(i, j).trim();
+			i = j;
+		}
+		while (i < body.length && /\s/.test(body[i])) i++;
+		if (body[i] !== ":") {
+			// not a key:value — skip this token/construct and retry
+			i = body[i] === '"' ? parseString(body, i).end : skipConstruct(body, i);
+			continue;
+		}
+		i++; // past ":"
+		while (i < body.length && /\s/.test(body[i])) i++;
+		if (body[i] === '"') {
+			const s = parseString(body, i);
+			pairs.push([key, s.value]);
+			i = s.end;
+		} else if (body[i] === "{") {
+			pairs.push([key, parseObject(body.slice(i))]);
+			i = skipConstruct(body, i);
+		} else if (body[i] === "[") {
+			pairs.push([key, null]); // arrays (inlineComment/blockComment) are not needed
+			i = skipConstruct(body, i);
+		} else {
+			let j = i;
+			while (j < body.length && !/[\s,]/.test(body[j])) j++;
+			pairs.push([key, body.slice(i, j).trim()]);
+			i = j;
+		}
+	}
+	return pairs;
+}
+
+/** Find `export const NAME: … = {` and return the raw object text from "{" on. */
+function findObject(name) {
+	const re = new RegExp(`(?:export\\s+)?const\\s+${name}\\s*:\\s*[^=]*=\\s*(\\{)`);
+	const m = re.exec(src);
+	if (!m) throw new Error(`export const ${name} not found`);
+	return src.slice(m.index + m[0].length - 1); // start at the captured "{"
+}
+
+// --- LANGUAGES (display-name keyed; Language objects with colour/icon/etc.) ---
+const langPairs = parseObject(findObject("LANGUAGES"));
+const languages = {};
+for (const [name, fields] of langPairs) {
+	if (!Array.isArray(fields)) continue; // defensive: Language object expected
+	const entry = {};
+	for (const [k, v] of fields) {
+		if ((k === "colour" || k === "icon") && typeof v === "string") entry[k] = v;
+	}
+	languages[name] = entry;
+}
+
+// --- LANGUAGE_NAMES = PRISM_LANGUAGES ∪ MANUAL_PRISM_LANGUAGES ∪ MANUAL_LANGUAGES ---
+const names = {};
+for (const table of ["PRISM_LANGUAGES", "MANUAL_PRISM_LANGUAGES", "MANUAL_LANGUAGES"]) {
+	for (const [code, display] of parseObject(findObject(table))) {
+		if (typeof display === "string") names[code] = display;
+	}
+}
+
+const out = `// AUTO-GENERATED by scripts/extract-code-styler-icons.mjs — do not edit.
+// Source: Obsidian-Code-Styler src/Settings.ts (${path.basename(srcPath)}).
+// icon fragments are raw inner-SVG markup for a 32x32 viewBox.
+
+export interface LanguageIcon {
+	colour?: string;
+	icon?: string;
+}
+
+/** Display-name keyed (e.g. "C++", "Python"). */
+export const LANGUAGES: Record<string, LanguageIcon> = ${JSON.stringify(languages, null, "\t")};
+
+/** Code/alias -> display name (PRISM + manual name maps). */
+export const LANGUAGE_NAMES: Record<string, string> = ${JSON.stringify(names, null, "\t")};
+`;
+
+fs.writeFileSync(outPath, out, "utf8");
+console.log(`wrote ${outPath}`);
+console.log(`  LANGUAGES entries: ${Object.keys(languages).length} (with icon: ${Object.values(languages).filter((l) => l.icon).length}, with colour: ${Object.values(languages).filter((l) => l.colour).length})`);
+console.log(`  LANGUAGE_NAMES entries: ${Object.keys(names).length}`);

@@ -1,0 +1,29 @@
+---
+// Global stylesheets. (Restored — these imports were orphaned by the CSS
+// refactor in 079abbc, which emptied this component without re-importing the
+// extracted files. Astro hoists CSS imports into the global bundle.)
+//
+// ORDER IS A CONTRACT — don't reorder or append blindly:
+//  variables.styl first (defines every --token the utilities below use),
+//  then the Tailwind entry (main.css, @import "tailwindcss"),
+//  then markdown.css (its @reference "./main.css" needs main loaded first),
+//  then the small leaf files, and quartz-pipeline's content styles last.
+// New stylesheet: insert before quartz-content.css, keep variables first.
+// code-styler.css deliberately comes AFTER quartz-content.css: it overrides
+// the figure's pre chrome for decorated code blocks (rows own the padding)
+// and re-places the clipboard button into the codeblock header.
+// image-converter.css comes last of all: its alignment rules must beat
+// typography's .prose img margins, and code-styler.css doesn't touch imgs.
+import "../styles/variables.styl";
+import "../styles/main.css";
+import "../styles/markdown.css";
+import "../styles/markdown-extend.styl";
+import "../styles/scrollbar.css";
+import "../styles/transition.css";
+import "../styles/photoswipe.css";
+import "../integrations/quartz-pipeline/quartz-content.css";
+import "../styles/code-styler.css";
+import "../styles/image-converter.css";
+---
+
+<slot />

@@ -1,0 +1,38 @@
+---
+import I18nKey from "../../i18n/i18nKey";
+import { i18n } from "../../i18n/server-i18n";
+import { getCategoryList } from "../../utils/content-utils";
+import ButtonLink from "../control/ButtonLink.astro";
+import WidgetLayout from "./WidgetLayout.astro";
+
+const categories = await getCategoryList();
+
+const COLLAPSED_HEIGHT = "7.5rem";
+const COLLAPSE_THRESHOLD = 5;
+
+const isCollapsed = categories.length >= COLLAPSE_THRESHOLD;
+
+interface Props {
+	/** 覆盖默认 i18n 标题（主页总览传中文「分类」） */
+	title?: string;
+	class?: string;
+	style?: string;
+}
+const className = Astro.props.class;
+const style = Astro.props.style;
+const widgetName = Astro.props.title ?? i18n(I18nKey.categories);
+---
+
+<WidgetLayout name={widgetName} id="categories" isCollapsed={isCollapsed} collapsedHeight={COLLAPSED_HEIGHT}
+                class={className} style={style}
+>
+    {categories.map((c) =>
+        <ButtonLink
+            url={c.url}
+            badge={String(c.count)}
+            label={`View all notes in the ${c.name.trim()} category`}
+        >
+            {c.name.trim()}
+        </ButtonLink>
+    )}
+</WidgetLayout>

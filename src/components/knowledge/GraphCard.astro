@@ -1,0 +1,75 @@
+---
+/**
+ * Vault right-rail graph card (local graph + fullscreen global graph),
+ * mirroring the quartz @quartz-community/graph shell: two containers with a
+ * data-cfg attribute consumed by the client engine (graph-client.js).
+ */
+import I18nKey from "../../i18n/i18nKey";
+import { i18n } from "../../i18n/server-i18n";
+import { getSiteConfig } from "../../utils/site-config";
+
+const siteConfig = getSiteConfig();
+const sharedCfg = {
+	drag: true,
+	zoom: true,
+	repelForce: 0.5,
+	linkDistance: 30,
+	fontSize: 0.6,
+	opacityScale: 1,
+	showTags: siteConfig.graph.showTags,
+};
+
+const localCfg = {
+	...sharedCfg,
+	depth: siteConfig.graph.localDepth,
+	scale: 1.1,
+	centerForce: 0.3,
+	focusOnHover: false,
+	enableRadial: false,
+};
+
+const globalCfg = {
+	...sharedCfg,
+	depth: -1,
+	scale: 0.9,
+	centerForce: 0.2,
+	focusOnHover: true,
+	enableRadial: true,
+};
+---
+
+<div class="card-base p-4 graph shrink-0">
+	<h3 class="font-bold flex items-center text-sm text-(--btn-content) shrink-0">
+		<span class="w-1 h-4 rounded-md bg-(--primary) mr-2 inline-block"></span>
+		{i18n(I18nKey.graphTitle)}
+	</h3>
+	<div class="graph-outer">
+		<div class="graph-container" data-cfg={JSON.stringify(localCfg)}></div>
+		<button class="global-graph-icon" type="button" aria-label={i18n(I18nKey.graphExpand)} title={i18n(I18nKey.graphExpand)}>
+			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+				<circle cx="6" cy="6" r="2.2"></circle>
+				<circle cx="18" cy="6" r="2.2"></circle>
+				<circle cx="6" cy="18" r="2.2"></circle>
+				<circle cx="18" cy="18" r="2.2"></circle>
+				<circle cx="12" cy="12" r="2.2"></circle>
+				<line x1="7.6" y1="7.6" x2="10.4" y2="10.4"></line>
+				<line x1="13.6" y1="10.4" x2="16.4" y2="7.6"></line>
+				<line x1="16.4" y1="16.4" x2="13.6" y2="13.6"></line>
+				<line x1="10.4" y1="13.6" x2="7.6" y2="16.4"></line>
+			</svg>
+		</button>
+	</div>
+	<div class="global-graph-outer" aria-hidden="true">
+		<div class="global-graph-head">
+			<span class="w-1 h-4 rounded-md bg-(--primary) mr-1 inline-block"></span>
+			{i18n(I18nKey.graphTitle)}
+		</div>
+		<button class="global-graph-close" type="button" aria-label={i18n(I18nKey.graphClose)} title={i18n(I18nKey.graphClose)}>
+			<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+				<line x1="5" y1="5" x2="19" y2="19"></line>
+				<line x1="19" y1="5" x2="5" y2="19"></line>
+			</svg>
+		</button>
+		<div class="global-graph-container" data-cfg={JSON.stringify(globalCfg)}></div>
+	</div>
+</div>

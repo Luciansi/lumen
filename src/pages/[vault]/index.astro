@@ -1,0 +1,55 @@
+---
+import Markdown from "@components/misc/Markdown.astro";
+import MainGridLayout from "@layouts/MainGridLayout.astro";
+import { renderEntry, vaultEntries } from "@utils/content-utils";
+import { kbVaultPathOf } from "@utils/knowledge-utils";
+import { listVaults } from "@utils/vaults";
+
+// /<vault-route>/ serves each vault's root note <VaultDir>/index.md — an
+// ordinary Obsidian note whose body is maintained there (its auto-generated
+// note index lives between <!-- auto-index:start --> markers, see scripts/).
+export function getStaticPaths() {
+	return listVaults().map(({ route, dir }) => ({
+		params: { vault: route },
+		props: { dir },
+	}));
+}
+
+const { dir } = Astro.props as { dir: string };
+
+// A vault without its root note still gets a (mostly empty) home.
+const entries = await vaultEntries(dir);
+const indexEntry = entries.find((entry) => entry.id === "index");
+
+// index.md usually carries no frontmatter title — fall back to a fixed page
+// name (String() narrows the wide-open schema's data type)
+const title = indexEntry?.data.title ? String(indexEntry.data.title) : dir;
+const renderResult = indexEntry ? await renderEntry(indexEntry) : null;
+const Content = renderResult?.Content ?? null;
+const headings = renderResult?.headings ?? [];
+// The vault-root note has no parent path to show (kbVaultPathOf returns "").
+const vaultPath = indexEntry ? kbVaultPathOf(indexEntry) : "";
+---
+<MainGridLayout title={title} headings={headings}>
+    <div class="flex w-full rounded-(--radius-large) overflow-hidden relative mb-4">
+        <div class="card-base z-10 px-6 md:px-9 pt-6 pb-4 relative w-full">
+            <!-- breadcrumb-ish path -->
+            {vaultPath && (
+                <div class="text-sm text-black/50 dark:text-white/50 mb-3">{vaultPath}</div>
+            )}
+
+            <!-- title (h1: swup's a11y plugin announces it on page switches) -->
+            <h1 class="font-bold mb-5 text-3xl text-black/90 dark:text-white/90">{title}</h1>
+
+            {Content ? (
+                <Markdown class="mb-6 markdown-content">
+                    <Content />
+                </Markdown>
+            ) : (
+                <div class="text-sm text-black/50 dark:text-white/50">
+                    index.md not found — create src/content/{dir}/index.md
+                </div>
+            )}
+        </div>
+    </div>
+</MainGridLayout>

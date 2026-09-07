@@ -1,0 +1,170 @@
+---
+import { Icon } from "astro-icon/components";
+import { getLinkPresets } from "../constants/link-presets";
+import { LinkPreset, type NavBarLink } from "../types/config";
+import { getNavBarConfig, getSiteConfig } from "../utils/site-config";
+import { url } from "../utils/url-utils";
+import { listVaults } from "../utils/vaults";
+import LightDarkSwitch from "./LightDarkSwitch.svelte";
+import Search from "./Search.svelte";
+import DisplaySettings from "./widget/DisplaySettings.svelte";
+import NavMenuPanel from "./widget/NavMenuPanel.astro";
+
+const className = Astro.props.class;
+const siteConfig = getSiteConfig();
+const navBarConfig = getNavBarConfig();
+const LinkPresets = getLinkPresets();
+
+// 导航解析:预设项(LinkPreset 数字)→ 当前语言的文案链接;
+// 同时记录各预设的位置,供 vaultLinksBefore 按预设 id 匹配
+let links: NavBarLink[] = navBarConfig.links.map(
+	(item: NavBarLink | LinkPreset): NavBarLink => {
+		if (typeof item === "number") {
+			return LinkPresets[item];
+		}
+		return item;
+	},
+);
+const presetAnchorOf: { id: string; index: number }[] = [];
+navBarConfig.links.forEach((item, index) => {
+	if (typeof item === "number") {
+		presetAnchorOf.push({
+			id: LinkPreset[item].toLowerCase(),
+			index,
+		});
+	}
+});
+
+// Knowledge-vault nav links are derived from the content scan (utils/vaults),
+// never configured by hand: a vault directory in src/content gets one link
+// to its home page, and the link disappears when the directory is removed.
+// Vaults are labeled by their directory name; vault roots that duplicate a
+// preset destination (about/… are ordinary vault pages) are left to the preset.
+const vaultLinks: NavBarLink[] = listVaults()
+	.filter((vault) => vault.route !== "about")
+	.map((vault) => ({
+		name: vault.dir,
+		url: `/${vault.route}/`,
+	}));
+if (vaultLinks.length > 0) {
+	// optional insertion point: right before the configured link whose
+	// display name matches navBarConfig.vaultLinksBefore, or whose preset
+	// id (home/archive/about) matches it case-insensitively (fallback: append)
+	const insertBefore = navBarConfig.vaultLinksBefore;
+	let at = insertBefore ? links.findIndex((l) => l.name === insertBefore) : -1;
+	if (at === -1 && insertBefore) {
+		const preset = presetAnchorOf.find(
+			(p) => p.id === insertBefore.trim().toLowerCase(),
+		);
+		if (preset) at = preset.index;
+	}
+	links =
+		at === -1
+			? [...links, ...vaultLinks]
+			: [...links.slice(0, at), ...vaultLinks, ...links.slice(at)];
+}
+---
+<div id="navbar" class="z-50 onload-animation">
+    <div class="absolute h-8 left-0 right-0 -top-8 bg-(--card-bg) transition"></div> <!-- used for onload animation -->
+    <div class:list={[
+        className,
+        "card-base overflow-visible! max-w-(--page-width) h-[3.5rem] rounded-t-none! mx-auto flex items-center justify-between px-3"]}>
+        <a href={url('/')} class="btn-plain scale-animation rounded-lg h-9 px-4 font-bold active:scale-95">
+            <div class="flex flex-row text-(--primary) items-center text-md">
+                <Icon name="material-symbols:home-outline-rounded" class="text-[1.75rem] mb-1 mr-2" />
+                {siteConfig.title}
+            </div>
+        </a>
+        <div class="hidden md:flex">
+            {links.map((l) => {
+                return <a aria-label={l.name} href={l.external ? l.url : url(l.url)} target={l.external ? "_blank" : null}
+                          class="btn-plain scale-animation rounded-lg h-9 font-bold px-4 active:scale-95"
+                >
+                    <div class="flex items-center">
+                        {l.name}
+                        {l.external && <Icon name="fa6-solid:arrow-up-right-from-square" class="text-[0.875rem] transition -translate-y-[1px] ml-1 text-black/[0.2] dark:text-white/[0.2]"></Icon>}
+                    </div>
+                </a>;
+            })}
+        </div>
+        <div class="flex">
+            <Search client:only="svelte"></Search>
+            {!siteConfig.themeColor.fixed && (
+                    <button aria-label="Display Settings" class="btn-plain scale-animation rounded-lg h-9 w-9 active:scale-90" id="display-settings-switch">
+                        <Icon name="material-symbols:palette-outline" class="text-[1.25rem]"></Icon>
+                    </button>
+            )}
+            <LightDarkSwitch client:only="svelte"></LightDarkSwitch>
+            <button aria-label="Menu" name="Nav Menu" class="btn-plain scale-animation rounded-lg w-9 h-9 active:scale-90 md:hidden!" id="nav-menu-switch">
+                <Icon name="material-symbols:menu-rounded" class="text-[1.25rem]"></Icon>
+            </button>
+        </div>
+        <NavMenuPanel links={links}></NavMenuPanel>
+        <DisplaySettings client:only="svelte"></DisplaySettings>
+    </div>
+</div>
+
+<script>
+function loadButtonScript() {
+    // NOTE: the theme toggle lives in the LightDarkSwitch island
+    // (onclick handled by Svelte) — no native handler for #scheme-switch.
+
+    let settingBtn = document.getElementById("display-settings-switch");
+    if (settingBtn) {
+        settingBtn.onclick = function () {
+            let settingPanel = document.getElementById("display-setting");
+            if (settingPanel) {
+                settingPanel.classList.toggle("float-panel-closed");
+            }
+        };
+    }
+
+    let menuBtn = document.getElementById("nav-menu-switch");
+    if (menuBtn) {
+        menuBtn.onclick = function () {
+            let menuPanel = document.getElementById("nav-menu-panel");
+            if (menuPanel) {
+                menuPanel.classList.toggle("float-panel-closed");
+            }
+        };
+    }
+}
+
+loadButtonScript();
+</script>
+
+{import.meta.env.PROD && <script is:inline define:vars={{scriptUrl: url('/pagefind/pagefind.js')}}>
+async function loadPagefind() {
+    try {
+        const response = await fetch(scriptUrl, { method: 'HEAD' });
+        if (!response.ok) {
+            throw new Error(`Pagefind script not found: ${response.status}`);
+        }
+
+        const pagefind = await import(scriptUrl);
+
+        await pagefind.options({
+            excerptLength: 20
+        });
+
+        window.pagefind = pagefind;
+
+        document.dispatchEvent(new CustomEvent('pagefindready'));
+        console.log('Pagefind loaded and initialized successfully, event dispatched.');
+    } catch (error) {
+        console.error('Failed to load Pagefind:', error);
+        window.pagefind = {
+            search: () => Promise.resolve({ results: [] }),
+            options: () => Promise.resolve(),
+        };
+        document.dispatchEvent(new CustomEvent('pagefindloaderror'));
+        console.log('Pagefind load error, event dispatched.');
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadPagefind);
+} else {
+    loadPagefind();
+}
+</script>}

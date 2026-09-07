@@ -1,0 +1,420 @@
+/*
+ * Styles for the quartz pipeline's content structures (callouts, wikilinks,
+ * highlights, tags, transclusions, mermaid, clipboard, code blocks),
+ * restyled with fuwari's design tokens. The HTML structures follow
+ * quartz v5 semantics; the look stays fuwari.
+ */
+
+/* ---------- code blocks (rehype-pretty-code + Shiki dual theme) ---------- */
+
+figure[data-rehype-pretty-code-figure] {
+    position: relative;
+    margin: 1.25rem 0;
+    border-radius: 0.75rem;
+    border: 1px solid var(--line-divider);
+    background: var(--codeblock-bg);
+    overflow: hidden;
+}
+
+figure[data-rehype-pretty-code-figure] pre {
+    margin: 0;
+    background: transparent;
+    overflow-x: auto;
+    padding: 1rem 1.25rem;
+}
+
+figure[data-rehype-pretty-code-figure] code {
+    background: transparent;
+    padding: 0;
+    border: none;
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+}
+
+/* dual-theme switch: blocks carry both themes via `data-theme="a b"` */
+code[data-theme*=" "],
+code[data-theme*=" "] span {
+    color: var(--shiki-light);
+}
+:root.dark code[data-theme*=" "],
+:root.dark code[data-theme*=" "] span {
+    color: var(--shiki-dark);
+}
+
+/* token classification (data-token-type attributes from the token classifier) */
+[data-token-type="comment"] {
+    font-style: italic;
+    opacity: 0.75;
+}
+
+/* ---------- callouts (OFM structure, quartz semantics) ---------- */
+
+.callout {
+    border: 1px solid var(--callout-border);
+    background-color: var(--callout-bg);
+    border-radius: var(--radius-large);
+    padding: 0 1rem;
+    overflow-y: hidden;
+    box-sizing: border-box;
+    margin: 1.25rem 0;
+
+    --callout-border: var(--line-divider);
+    --callout-bg: transparent;
+
+    & > .callout-content {
+        display: grid;
+        transition: grid-template-rows 0.1s cubic-bezier(0.02, 0.01, 0.47, 1);
+        overflow: hidden;
+
+        & > :first-child {
+            margin-top: 0;
+        }
+    }
+
+    /* per-type accent colors, mapped onto fuwari's admonition palette */
+    &[data-callout="note"]            { --callout-color: var(--admonitions-color-note); }
+    &[data-callout="abstract"],
+    &[data-callout="summary"],
+    &[data-callout="tldr"]            { --callout-color: var(--admonitions-color-note); }
+    &[data-callout="info"],
+    &[data-callout="todo"]            { --callout-color: var(--admonitions-color-tip); }
+    &[data-callout="tip"],
+    &[data-callout="hint"],
+    &[data-callout="important"]       { --callout-color: var(--admonitions-color-tip); }
+    &[data-callout="success"],
+    &[data-callout="check"],
+    &[data-callout="done"]            { --callout-color: var(--admonitions-color-success); }
+    &[data-callout="question"],
+    &[data-callout="help"],
+    &[data-callout="faq"]             { --callout-color: var(--admonitions-color-warning); }
+    &[data-callout="warning"],
+    &[data-callout="attention"],
+    &[data-callout="caution"]         { --callout-color: var(--admonitions-color-warning); }
+    &[data-callout="failure"],
+    &[data-callout="missing"],
+    &[data-callout="fail"],
+    &[data-callout="danger"],
+    &[data-callout="error"],
+    &[data-callout="bug"]             { --callout-color: var(--admonitions-color-caution); }
+    &[data-callout="example"]         { --callout-color: var(--admonitions-color-important); }
+    &[data-callout="quote"],
+    &[data-callout="cite"]            { --callout-color: var(--btn-content); }
+
+    &[data-callout] {
+        --callout-border: color-mix(in oklab, var(--callout-color) 25%, transparent);
+        --callout-bg: color-mix(in oklab, var(--callout-color) 8%, transparent);
+    }
+
+    &.is-collapsed {
+        & > .callout-title > .fold-callout-icon {
+            transform: rotateZ(-90deg);
+        }
+
+        .callout-content {
+            & > * {
+                transition: height 0.1s cubic-bezier(0.02, 0.01, 0.47, 1),
+                    margin 0.1s cubic-bezier(0.02, 0.01, 0.47, 1),
+                    padding 0.1s cubic-bezier(0.02, 0.01, 0.47, 1);
+                overflow-y: clip;
+                height: 0;
+                margin-bottom: 0;
+                margin-top: 0;
+                padding-bottom: 0;
+                padding-top: 0;
+            }
+            & > :first-child {
+                margin-top: -1rem;
+            }
+        }
+    }
+}
+
+.callout-title {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.35rem;
+    padding: 0.75rem 0;
+    color: var(--callout-color);
+    --icon-size: 18px;
+
+    & .fold-callout-icon {
+        transition: transform 0.15s ease;
+        opacity: 0.8;
+        cursor: pointer;
+        --callout-icon: var(--callout-icon-fold);
+    }
+
+    & > .callout-title-inner > p {
+        color: var(--callout-color);
+        margin: 0;
+    }
+
+    .callout-icon,
+    & .fold-callout-icon {
+        width: var(--icon-size);
+        height: var(--icon-size);
+        flex: 0 0 var(--icon-size);
+        background-size: var(--icon-size) var(--icon-size);
+        background-position: center;
+        background-color: var(--callout-color);
+        mask-image: var(--callout-icon);
+        mask-size: var(--icon-size) var(--icon-size);
+        mask-position: center;
+        mask-repeat: no-repeat;
+        padding: 0.2rem 0;
+    }
+
+    .callout-title-inner {
+        font-weight: 600;
+    }
+}
+
+/* fold chevron */
+.callout-title .fold-callout-icon {
+    --callout-icon-fold: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3E%3Cpolyline points="6 9 12 15 18 9"%3E%3C/polyline%3E%3C/svg%3E');
+}
+
+/* ---------- OFM inline structures ---------- */
+
+.text-highlight {
+    background: var(--text-highlight);
+    border-radius: 0.25rem;
+    padding: 0 0.2rem;
+}
+
+a.tag-link {
+    background: var(--tag-link-bg);
+    color: var(--btn-content);
+    border-radius: 999px;
+    padding: 0.05rem 0.55rem;
+    font-size: 0.85em;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-block;
+    margin: 0 0.1rem;
+
+    &:hover {
+        background: var(--btn-plain-bg-hover);
+        text-decoration: none;
+    }
+}
+
+/* ---------- transclusions ---------- */
+
+blockquote.transclude {
+    border-left: 3px solid var(--primary);
+    background: var(--callout-bg);
+    border-radius: 0 var(--radius-large) var(--radius-large) 0;
+    padding: 0.75rem 1rem;
+    margin: 1rem 0;
+    overflow-y: hidden;
+
+    & > a.transclude-inner,
+    & > a.transclude-src {
+        display: block;
+        font-size: 0.8em;
+        opacity: 0.6;
+        margin-top: 0.5rem;
+    }
+}
+
+/* ---------- links ---------- */
+
+a.external-link svg.external-icon {
+    width: 0.85em;
+    height: 0.85em;
+    margin-left: 0.25em;
+    display: inline-block;
+}
+
+a.broken {
+    color: var(--broken-link);
+    text-decoration: underline wavy;
+}
+
+/* ---------- task list checkboxes ---------- */
+
+li.task-list-item input.checkbox-toggle {
+    accent-color: var(--primary);
+    margin-right: 0.4rem;
+}
+
+/* ---------- clipboard button (vendored from syntax-highlighting) ---------- */
+
+.clipboard-button {
+    position: absolute;
+    display: flex;
+    float: right;
+    right: 0;
+    top: 0;
+    padding: 0.4rem;
+    margin: 0.3rem;
+    color: var(--btn-content);
+    background-color: var(--card-bg);
+    border: 1px solid var(--line-divider);
+    border-radius: 0.4rem;
+    opacity: 0;
+    transition: 0.2s;
+    cursor: pointer;
+}
+
+.clipboard-button > svg {
+    fill: var(--btn-content);
+}
+
+.clipboard-button:hover {
+    border-color: var(--primary);
+}
+
+.clipboard-button:focus {
+    outline: 0;
+}
+
+pre:hover > .clipboard-button {
+    opacity: 1;
+}
+
+/* ---------- mermaid (vendored from OFM, re-tokenized) ---------- */
+
+pre.mermaid {
+    position: relative;
+    min-height: 4rem;
+}
+
+/* Mermaid blocks land in a bare <pre><code class="mermaid">…</code></pre>
+ * (OFM markup), so they inherit the code-block chrome. A rendered diagram is
+ * not code — put it on the card background, which is what the diagram's own
+ * colors (theme tokens resolved in JS) are matched to, instead of the dark
+ * codeblock background that clashes with them. */
+pre:has(> code.mermaid) {
+    background-color: var(--card-bg);
+    border: 1px solid var(--line-divider);
+    border-radius: 0.75rem;
+    overflow-x: auto;
+}
+
+.expand-button {
+    position: absolute;
+    display: flex;
+    right: 0;
+    top: 0;
+    padding: 0.4rem;
+    margin: 0.3rem;
+    color: var(--btn-content);
+    background-color: var(--card-bg);
+    border: 1px solid var(--line-divider);
+    border-radius: 0.4rem;
+    opacity: 0;
+    transition: 0.2s;
+    cursor: pointer;
+}
+
+.expand-button > svg {
+    fill: var(--btn-content);
+}
+
+.expand-button:hover {
+    border-color: var(--primary);
+}
+
+.expand-button:focus {
+    outline: 0;
+}
+
+pre:hover > .expand-button {
+    opacity: 1;
+}
+
+#mermaid-container {
+    position: fixed;
+    contain: layout;
+    z-index: 999;
+    left: 0;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    display: none;
+    backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.5);
+}
+
+#mermaid-container.active {
+    display: inline-block;
+}
+
+#mermaid-container > #mermaid-space {
+    border: 1px solid var(--line-divider);
+    background-color: var(--card-bg);
+    border-radius: var(--radius-large);
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    height: 80vh;
+    width: 80vw;
+    overflow: hidden;
+}
+
+#mermaid-container > #mermaid-space > .mermaid-content {
+    position: relative;
+    transform-origin: 0 0;
+    transition: transform 0.1s ease;
+    overflow: visible;
+    min-height: 200px;
+    min-width: 200px;
+}
+
+#mermaid-container > #mermaid-space > .mermaid-content pre {
+    margin: 0;
+    border: none;
+}
+
+#mermaid-container > #mermaid-space > .mermaid-content svg {
+    max-width: none;
+    height: auto;
+}
+
+#mermaid-container > #mermaid-space > .mermaid-controls {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    background: var(--card-bg);
+    border: 1px solid var(--line-divider);
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    z-index: 2;
+}
+
+#mermaid-container > #mermaid-space > .mermaid-controls .mermaid-control-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid var(--line-divider);
+    background: var(--card-bg);
+    color: var(--btn-content);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s ease;
+}
+
+#mermaid-container > #mermaid-space > .mermaid-controls .mermaid-control-button:hover {
+    background: var(--btn-plain-bg-hover);
+}
+
+#mermaid-container > #mermaid-space > .mermaid-controls .mermaid-control-button:active {
+    transform: translateY(1px);
+}
+
+#mermaid-container > #mermaid-space > .mermaid-controls .mermaid-control-button:nth-child(2) {
+    width: auto;
+    padding: 0 12px;
+    font-size: 14px;
+}

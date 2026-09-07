@@ -1,0 +1,132 @@
+---
+/**
+ * Vault notes: the classic sidebar (Profile / Categories / Tags)
+ * lives in a left drawer, collapsed by default, expandable via the floating
+ * edge button. The open state persists in localStorage.
+ *
+ * Custom element: like TOC.astro, the drawer is a custom element so swup
+ * re-connections (whole-subtree replacement) re-apply the stored state and
+ * re-bind listeners without relying on script re-execution.
+ *
+ * The floating toggle stays above the drawer (z-50 vs z-40) so it doubles
+ * as the close handle on the open panel's edge; the scrim dims the page
+ * while open and closes on click (see the .open rules in main.css).
+ */
+import SideBar from "@components/widget/SideBar.astro";
+---
+
+<kb-sidebar-drawer>
+	<button
+		id="kb-sidebar-toggle"
+		type="button"
+		aria-label="Toggle sidebar"
+		aria-expanded="false"
+		class="fixed left-0 top-28 z-50 h-11 w-9 rounded-r-xl flex items-center justify-center
+		       bg-(--card-bg) text-(--btn-content) shadow-md transition-colors
+		       hover:bg-(--btn-card-bg-hover)"
+	>
+		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+			<path d="M11 17l-5-5 5-5"></path>
+			<path d="M18 17l-5-5 5-5"></path>
+		</svg>
+	</button>
+	<div
+		id="kb-sidebar-drawer"
+		class="fixed left-0 top-14 bottom-0 z-40 w-[min(17.5rem,85vw)] overflow-hidden
+		       bg-(--card-bg) shadow-xl transition-transform duration-300 -translate-x-full
+		       rounded-r-(--radius-large)"
+	>
+		<div class="h-full overflow-y-auto hide-scrollbar p-4">
+			<SideBar></SideBar>
+		</div>
+	</div>
+	<!-- Scrim: dims the page while the drawer is open; a click closes it.
+	     Lives inside the element so the document-level outside-click handler
+	     (which ignores clicks within the drawer) doesn't also fire for it. -->
+	<div id="kb-sidebar-scrim" aria-hidden="true"></div>
+</kb-sidebar-drawer>
+
+<script>
+	const STORAGE_KEY = "kb-sidebar-open";
+
+	function applyState(root: HTMLElement) {
+		const drawer = root.querySelector<HTMLElement>("#kb-sidebar-drawer");
+		const toggle = root.querySelector<HTMLButtonElement>("#kb-sidebar-toggle");
+		if (!drawer) return;
+		let open = false;
+		try {
+			open = localStorage.getItem(STORAGE_KEY) === "1";
+		} catch {
+			/* private mode etc. — stay closed */
+		}
+		drawer.classList.toggle("open", open);
+		if (toggle) toggle.setAttribute("aria-expanded", String(open));
+	}
+
+	class KbSidebarDrawer extends HTMLElement {
+		connectedCallback() {
+			if (this.dataset.bound) return;
+			this.dataset.bound = "1";
+			applyState(this);
+
+			const drawer = this.querySelector<HTMLElement>("#kb-sidebar-drawer");
+			const toggle = this.querySelector<HTMLButtonElement>("#kb-sidebar-toggle");
+			if (!drawer) return;
+
+			const setOpen = (open: boolean) => {
+				drawer.classList.toggle("open", open);
+				if (toggle) toggle.setAttribute("aria-expanded", String(open));
+				try {
+					localStorage.setItem(STORAGE_KEY, open ? "1" : "0");
+				} catch {
+					/* ignore */
+				}
+			};
+
+			toggle?.addEventListener("click", () => {
+				setOpen(!drawer.classList.contains("open"));
+			});
+			drawer.addEventListener("click", (e) => {
+				// clicking the drawer's own toggle buttons (widget collapse etc.)
+				// must not close it
+				e.stopPropagation();
+			});
+			// scrim is pointer-events: none while closed, so clicks only reach
+			// it when the drawer is open — closing is all it does
+			this.querySelector("#kb-sidebar-scrim")?.addEventListener("click", () => {
+				toggle?.click();
+			});
+		}
+	}
+
+	if (!customElements.get("kb-sidebar-drawer")) {
+		customElements.define("kb-sidebar-drawer", KbSidebarDrawer);
+	}
+
+	// outside click / Escape — registered once per page load (guard + doc-level)
+	const win = window as unknown as { __kbDrawerInstalled?: boolean };
+	if (!win.__kbDrawerInstalled) {
+		win.__kbDrawerInstalled = true;
+		document.addEventListener("click", (e) => {
+			const target = e.target as Node;
+			if (target instanceof Element && target.closest("kb-sidebar-drawer")) return;
+			for (const el of document.querySelectorAll<HTMLElement>("kb-sidebar-drawer")) {
+				const drawer = el.querySelector<HTMLElement>("#kb-sidebar-drawer");
+				if (drawer?.classList.contains("open")) {
+					el.dataset.bound = "1"; // ensure bound before closing
+					const toggle = el.querySelector<HTMLButtonElement>("#kb-sidebar-toggle");
+					toggle?.click();
+				}
+			}
+		});
+		document.addEventListener("keydown", (e) => {
+			if (e.key !== "Escape") return;
+			for (const el of document.querySelectorAll<HTMLElement>("kb-sidebar-drawer")) {
+				const drawer = el.querySelector<HTMLElement>("#kb-sidebar-drawer");
+				if (drawer?.classList.contains("open")) {
+					el.querySelector<HTMLButtonElement>("#kb-sidebar-toggle")?.click();
+				}
+			}
+		});
+	}
+</script>
